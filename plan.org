@@ -1,0 +1,265 @@
+#+title: Ember Neovim Port — Implementation Plan
+#+author: daedlock + claude
+#+date: 2026-04-11
+
+* How Neovim Themes Actually Work
+
+** The Layering Model
+
+Neovim has NO single semantic abstraction like Doom Emacs's =(keywords coral)= mapping.
+Instead, it has *three semi-independent highlight layers*:
+
+| Layer              | Abstraction level | Coverage          | How it helps us          |
+|--------------------+-------------------+-------------------+--------------------------|
+| Editor UI groups   | None (manual)     | ~20 core groups   | Must set each one        |
+| Treesitter captures| *Semantic*        | ~40 base captures | Set once, all langs work |
+| LSP semantic tokens| Inherits from TS  | ~30 groups        | Mostly free via linking  |
+| Plugin groups      | None (manual)     | Varies per plugin | Must set each one        |
+
+The *treesitter layer is the big win* — it's genuinely semantic. =@keyword= covers
+keywords in every language with a treesitter parser. =@function= covers all functions.
+Set ~40 capture groups and syntax highlighting "just works" across languages.
+
+LSP semantic tokens (=@lsp.type.function=, etc.) *inherit from treesitter groups by
+default*, so they're mostly free. Only override when LSP provides unique info.
+
+Everything else (editor chrome, plugins) is manual — one highlight group at a time.
+
+** What Well-Made Themes Do (Kanagawa, Catppuccin, Tokyonight)
+
+All use a *strict three-layer separation*:
+
+1. *Raw palette* — just named hex values, no semantics
+2. *Theme/semantic map* — palette colors → roles (ui.fg, syn.keyword, diag.error)
+3. *Highlight groups* — roles → nvim highlight groups (=Normal=, =@keyword=, etc.)
+
+This separation means:
+- Variants swap at the theme layer (same highlight code, different color mapping)
+- Users can override at palette or theme level
+- Plugin highlights reference semantic roles, not raw hex
+
+** What This Means for Ember
+
+We get the semantic abstraction we want — but *we build it ourselves* as a middle
+layer between palette.json and nvim highlight groups. Kanagawa calls this =themes.lua=.
+We'll call it the *semantic map*.
+
+The mapping from THEME-FRAMEWORK.org translates directly:
+#+begin_example
+-- our semantic map (what we build)
+syn.keyword  = coral     -- hero accent
+syn.func     = gold      -- structured warmth
+syn.string   = olive     -- natural, receding
+syn.type     = gold      -- shares with functions
+syn.constant = orange    -- warm secondary
+syn.method   = sage      -- quiet, structural
+syn.comment  = base5     -- faded
+syn.operator = base6     -- nearly invisible
+#+end_example
+
+Then highlight groups just reference the map:
+#+begin_example
+["@keyword"]  = { fg = syn.keyword, bold = true }
+["@function"] = { fg = syn.func }
+["@string"]   = { fg = syn.string }
+-- etc.
+#+end_example
+
+* Architecture
+
+Based on research into kanagawa, catppuccin, and tokyonight.
+
+#+begin_example
+ember-theme/nvim/
+├── lua/
+│   └── ember/
+│       ├── init.lua            -- setup() + load() entry point
+│       ├── palette.lua         -- raw hex values from palette.json (all 3 variants)
+│       ├── theme.lua           -- semantic map: palette → roles (per variant)
+│       ├── util.lua            -- color math: blend, darken, lighten
+│       └── highlights/
+│           ├── init.lua        -- aggregates all highlight modules
+│           ├── editor.lua      -- Normal, CursorLine, Pmenu, StatusLine, etc.
+│           ├── syntax.lua      -- base vim syntax groups (String, Function, etc.)
+│           ├── treesitter.lua  -- @keyword, @function, @string, etc.
+│           ├── lsp.lua         -- @lsp.type.* groups (mostly links)
+│           ├── diagnostic.lua  -- DiagnosticError, DiagnosticWarn, etc.
+│           └── plugins/
+│               ├── telescope.lua
+│               ├── cmp.lua
+│               ├── gitsigns.lua
+│               ├── which-key.lua
+│               ├── indent-blankline.lua
+│               ├── neo-tree.lua
+│               └── mini.lua
+├── colors/
+│   ├── ember.lua               -- vim colorscheme entry: :colorscheme ember
+│   ├── ember-soft.lua          -- :colorscheme ember-soft
+│   └── ember-light.lua         -- :colorscheme ember-light
+├── README.md
+└── plan.org                    -- this file
+#+end_example
+
+** Why This Structure
+
+- =palette.lua= is a direct translation of =palette.json= — single source of truth
+- =theme.lua= is where our identity lives — the semantic mapping from THEMES.org
+- =highlights/= modules reference the theme map, never raw palette values
+- =colors/*.lua= are thin entry points that call =require("ember").load("ember")=
+- Plugin highlights are isolated files — easy to add/remove without touching core
+
+** Key Design Decisions
+
+1. *No compilation/caching* (unlike catppuccin). Keep it simple. Catppuccin's compiler
+   is clever but adds complexity. We can add it later if startup is slow.
+
+2. *Semantic map as the abstraction layer.* This is our equivalent of Doom's
+   =(keywords coral)= mapping — but explicit, not framework-provided.
+
+3. *Derive from palette.json.* The palette.lua file should be a straightforward
+   translation. When palette.json changes, palette.lua changes to match.
+
+4. *Plugin highlights are opt-in files* — not a conditional loading system like
+   catppuccin's integrations. Every plugin file is always loaded. Simpler.
+
+5. *User overrides via setup().* Follow kanagawa's pattern:
+   #+begin_example lua
+   require("ember").setup({
+     variant = "ember",                -- or "ember-soft", "ember-light"
+     overrides = function(colors)      -- optional highlight overrides
+       return { Normal = { bg = "#000000" } }
+     end,
+   })
+   #+end_example
+
+* Implementation Plan
+
+** Phase 1: Core (minimum viable theme)
+
+The goal: =:colorscheme ember= works and looks right on a code buffer.
+
+*** 1.1 palette.lua — raw colors
+Translate palette.json into three Lua tables (ember, ember-soft, ember-light).
+Include the background ramp (base0-base8) — derive from bg/fg using util.lua blending.
+
+*** 1.2 util.lua — color math
+Minimal: =blend(c1, c2, amount)=, =darken(color, amount)=, =lighten(color, amount)=.
+Operate on hex strings. Used to derive the background ramp and diff backgrounds.
+
+*** 1.3 theme.lua — semantic map
+Map palette → semantic roles for each variant. This is where Ember's identity lives.
+Output: a table with =ui.*=, =syn.*=, =diag.*=, =term.*= namespaces.
+
+*** 1.4 highlights/editor.lua — editor chrome
+~20 groups: Normal, NormalFloat, CursorLine, Visual, Search, IncSearch, Pmenu,
+StatusLine, LineNr, SignColumn, VertSplit, WinSeparator, FloatBorder, etc.
+
+*** 1.5 highlights/syntax.lua — base vim syntax
+~15 groups: String, Function, Keyword, Type, Number, Comment, Operator, etc.
+These are the fallback when treesitter isn't available.
+
+*** 1.6 highlights/treesitter.lua — treesitter captures
+~40 groups: @keyword, @function, @function.call, @string, @type, @variable,
+@constant, @comment, @operator, @punctuation, @property, @method, etc.
+This is where the semantic mapping pays off — set once, all languages work.
+
+*** 1.7 highlights/lsp.lua — LSP semantic tokens
+~15 groups, mostly =link= to treesitter groups. Only override where LSP
+provides genuinely different info (e.g., =@lsp.typemod.variable.global=).
+
+*** 1.8 highlights/diagnostic.lua
+DiagnosticError (rose), DiagnosticWarn (gold), DiagnosticInfo (steel),
+DiagnosticHint (sage). Plus underline variants.
+
+*** 1.9 colors/*.lua — entry points
+Three thin files that set the colorscheme name and call =require("ember").load()=.
+
+*** 1.10 init.lua — setup + load
+- =setup(opts)= merges user config
+- =load(variant)= orchestrates: palette → theme → highlights → nvim_set_hl
+
+** Phase 2: Plugin Highlights
+
+Add support for commonly used plugins, one file at a time.
+Priority order (by popularity + visual impact):
+
+1. *gitsigns* — gutter signs for git changes
+2. *telescope* — fuzzy finder UI
+3. *cmp / blink.cmp* — completion popup
+4. *which-key* — keybinding popup
+5. *neo-tree / nvim-tree* — file explorer
+6. *indent-blankline* — indentation guides
+7. *mini.nvim* — mini.statusline, mini.tabline, etc.
+8. *lualine* — statusline (if user prefers over mini)
+9. *noice* — command line UI
+10. *lazy.nvim* — plugin manager UI
+
+** Phase 3: Polish & Distribution
+
+*** 3.1 Terminal colors
+Map ANSI 0-15 to ember palette (same mapping as the vterm section in THEME-FRAMEWORK.org).
+
+*** 3.2 User configuration
+- =variant= selection (with =background= auto-detection like catppuccin)
+- =styles= table for keyword/function/comment italic/bold preferences
+- =overrides= callback for custom highlight groups
+- =on_colors= callback for palette-level tweaks
+
+*** 3.3 README
+Installation (lazy.nvim, packer), configuration examples, screenshots.
+
+*** 3.4 Lualine theme
+Export =ember.lualine= for users who use lualine.
+
+*** 3.5 Testing
+Open real code in multiple languages, org files if using neorg, git views.
+The squint test: only coral should jump out.
+
+* Reference: Semantic Mapping (from THEMES.org)
+
+For quick reference during implementation:
+
+| Token      | Accent | Character             |
+|------------+--------+-----------------------|
+| Keywords   | coral  | Bold warmth (hero)    |
+| Functions  | gold   | Structured warmth     |
+| Types      | gold   | Shares with functions |
+| Strings    | olive  | Natural, receding     |
+| Constants  | orange | Warm secondary        |
+| Numbers    | orange | Shares with constants |
+| Methods    | sage   | Quiet, structural     |
+| Properties | orange | Warm, grouped         |
+| Comments   | base5  | Faded                 |
+| Operators  | base6  | Nearly invisible      |
+
+| UI Element | Color  | Notes                |
+|------------+--------+----------------------|
+| Cursor     | coral  | Hero accent          |
+| Search     | coral  | bg=coral, fg=bg      |
+| Links      | coral  | Underlined           |
+| Errors     | rose   | Dusty but clear      |
+| Warnings   | gold   | Warm caution         |
+| Info       | steel  | Cool, informational  |
+| Hints      | sage   | Quiet suggestion     |
+| Added      | olive  | Green-adjacent       |
+| Modified   | coral  | Hero accent          |
+| Deleted    | rose   | Red-adjacent         |
+
+* Reference: Background Ramp (to derive in palette.lua)
+
+The emacs port uses 11 stops. We need to derive these from bg/fg:
+
+| Stop  | Role                    | Approx L% (dark) |
+|-------+-------------------------+-------------------|
+| base0 | Darkest (float bg)      | 5%                |
+| base1 | Near-black              | 8%                |
+| base2 | Dark (block bg)         | 11%               |
+| base3 | Subtle highlight        | 14%               |
+| base4 | Borders, region         | 20%               |
+| base5 | Line numbers, faint     | 30%               |
+| base6 | Comments                | 42%               |
+| base7 | Doc comments, operators | 55%               |
+| base8 | Near-fg bright          | 75%               |
+
+These should be generated by blending bg → fg at appropriate ratios, keeping
+the H45 warm tint throughout the ramp.

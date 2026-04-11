@@ -49,11 +49,12 @@
 
 ## Variants
 
-| Variant | Background | Description |
-|---------|-----------|-------------|
-| `ember` | ![#1c1b19](https://img.shields.io/badge/%20-1c1b19?style=flat-square&color=1c1b19) `#1c1b19` | Dark graphite, L10% — the default |
-| `ember-soft` | ![#242320](https://img.shields.io/badge/%20-242320?style=flat-square&color=242320) `#242320` | Lifted graphite, L13% — softer contrast |
-| `ember-light` | ![#e6dac4](https://img.shields.io/badge/%20-e6dac4?style=flat-square&color=e6dac4) `#e6dac4` | Warm ivory, L84% — darkened accents for WCAG AA |
+<table width="100%">
+<tr><th>Variant</th><th>Background</th><th>Description</th></tr>
+<tr><td><code>ember</code></td><td><img src="https://img.shields.io/badge/%20-1c1b19?style=flat-square&color=1c1b19" /> <code>#1c1b19</code></td><td>Dark graphite, L10% — the default</td></tr>
+<tr><td><code>ember-soft</code></td><td><img src="https://img.shields.io/badge/%20-242320?style=flat-square&color=242320" /> <code>#242320</code></td><td>Lifted graphite, L13% — softer contrast</td></tr>
+<tr><td><code>ember-light</code></td><td><img src="https://img.shields.io/badge/%20-e6dac4?style=flat-square&color=e6dac4" /> <code>#e6dac4</code></td><td>Warm ivory, L84% — darkened accents for WCAG AA</td></tr>
+</table>
 
 ## Installation
 
@@ -85,17 +86,18 @@ Switch variants at runtime:
 
 Built-in highlight coverage for:
 
-| Category | Plugins |
-|----------|---------|
-| Syntax | Treesitter (`@capture` groups), LSP semantic tokens, diagnostics |
-| Picker | Telescope, Snacks picker |
-| Completion | nvim-cmp, blink.cmp |
-| UI | Which-key, Snacks dashboard, Snacks notifier |
-| File tree | Neo-tree, Snacks explorer |
-| Git | Gitsigns |
-| Indent | indent-blankline, Snacks indent |
-| Statusline | mini.statusline, mini.tabline, Lualine |
-| Other | Noice, Lazy.nvim, mini.jump, mini.pick |
+<table width="100%">
+<tr><th>Category</th><th>Plugins</th></tr>
+<tr><td>Syntax</td><td>Treesitter (<code>@capture</code> groups), LSP semantic tokens, diagnostics</td></tr>
+<tr><td>Picker</td><td>Telescope, Snacks picker</td></tr>
+<tr><td>Completion</td><td>nvim-cmp, blink.cmp</td></tr>
+<tr><td>UI</td><td>Which-key, Snacks dashboard, Snacks notifier</td></tr>
+<tr><td>File tree</td><td>Neo-tree, Snacks explorer</td></tr>
+<tr><td>Git</td><td>Gitsigns</td></tr>
+<tr><td>Indent</td><td>indent-blankline, Snacks indent</td></tr>
+<tr><td>Statusline</td><td>mini.statusline, mini.tabline, Lualine</td></tr>
+<tr><td>Other</td><td>Noice, Lazy.nvim, mini.jump, mini.pick</td></tr>
+</table>
 
 ## Links
 

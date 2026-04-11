@@ -19,6 +19,10 @@
 
 ---
 
+<p align="center">
+  <img src="assets/preview.png" alt="Ember variants" width="800" />
+</p>
+
 ## Screenshots
 
 <table>

@@ -20,7 +20,7 @@ M.get = function(theme)
 
     -- ── Titles and prompt ──
     SnacksPickerTitle = { fg = theme.ui.bg, bg = theme.syn.coral, bold = true },
-    SnacksPickerPreviewTitle = { fg = theme.ui.bg, bg = theme.syn.gold, bold = true },
+    SnacksPickerPreviewTitle = { fg = theme.ui.bg, bg = theme.syn.coral, bold = true },
     SnacksPickerPrompt = { fg = theme.syn.coral },
     SnacksPickerTotals = { fg = theme.ui.base6 },
 

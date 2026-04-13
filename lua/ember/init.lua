@@ -10,6 +10,8 @@ M.config = {
   },
   on_colors = nil, -- function(palette) end — modify palette before theme
   on_highlights = nil, -- function(highlights, theme) end — modify highlights
+  transparent = false,
+  transparent_floats = nil,
 }
 
 function M.setup(opts)
@@ -37,7 +39,7 @@ function M.load(variant)
   end
 
   -- Build semantic theme
-  local theme = require("ember.theme").setup(palette)
+  local theme = require("ember.theme").setup(palette, M.config)
 
   -- Collect all highlight groups
   local highlights = require("ember.highlights").get(theme)

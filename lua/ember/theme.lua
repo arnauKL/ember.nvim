@@ -51,8 +51,8 @@ function M.setup(p, config)
       highlight    = p.base4,
       border       = p.base4,
 
-      float_bg     = transparent_floats and "NONE" or p.base0,       -- darker than editor for visual separation
-      float_border = transparent_floats and p.base7 or p.base3,
+      float_bg     = transparent_floats and "NONE" or p.base0,
+      float_border = transparent_floats and p.fg or p.base3,
 
       pmenu_bg     = p.base2,
       pmenu_sel    = p.base4,
